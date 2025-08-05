@@ -1,0 +1,98 @@
+#!/system/bin/sh
+
+vndk="$(getprop persist.sys.vndk)"
+[ -z "$vndk" ] && vndk="$(getprop ro.vndk.version |grep -oE '^[0-9]+')"
+
+fixkeymaster_getspl() {
+    if [ "$(getprop ro.product.cpu.abi)" = "armeabi-v7a" ]; then
+        setprop ro.keymaster.mod 'AOSP on ARM32'
+    else
+        setprop ro.keymaster.mod 'AOSP on ARM64'
+    fi
+    img="$(find /dev/block -type l -iname kernel"$(getprop ro.boot.slot_suffix)" | grep by-name | head -n 1)"
+    [ -z "$img" ] && img="$(find /dev/block -type l -iname boot"$(getprop ro.boot.slot_suffix)" | grep by-name | head -n 1)"
+    if [ -n "$img" ]; then
+        #Rewrite SPL/Android version if needed
+        Arelease="$(keymaster_getspl "$img" android)"
+        spl="$(keymaster_getspl "$img" spl)"
+        setprop ro.keymaster.xxx.release "$Arelease"
+        setprop ro.keymaster.xxx.security_patch "$spl"
+	if [ -z "$Arelease" ] || [ -z "$spl" ];then
+		return 0
+	fi
+        setprop ro.keymaster.brn Android
+
+        if getprop ro.vendor.build.fingerprint |grep -qiE 'samsung.*star.*lte';then
+            additional="/apex/com.android.vndk.v28/lib64/libsoftkeymasterdevice.so /apex/com.android.vndk.v29/lib64/libsoftkeymasterdevice.so"
+        else
+            getprop ro.vendor.build.fingerprint | grep -qiE '^samsung/' && return 0
+        fi
+        for f in \
+            /vendor/lib64/hw/android.hardware.keymaster@3.0-impl-qti.so /vendor/lib/hw/android.hardware.keymaster@3.0-impl-qti.so \
+            /system/lib64/vndk-26/libsoftkeymasterdevice.so /vendor/bin/teed \
+            /apex/com.android.vndk.v26/lib/libsoftkeymasterdevice.so  \
+            /apex/com.android.vndk.v26/lib64/libsoftkeymasterdevice.so  \
+            /system/lib64/vndk/libsoftkeymasterdevice.so /system/lib/vndk/libsoftkeymasterdevice.so \
+            /system/lib/vndk-26/libsoftkeymasterdevice.so \
+            /system/lib/vndk-27/libsoftkeymasterdevice.so /system/lib64/vndk-27/libsoftkeymasterdevice.so \
+	    /vendor/lib/libkeymaster3device.so /vendor/lib64/libkeymaster3device.so \
+        /vendor/lib/libMcTeeKeymaster.so /vendor/lib64/libMcTeeKeymaster.so \
+        /vendor/lib/hw/libMcTeeKeymaster.so /vendor/lib64/hw/libMcTeeKeymaster.so $additional; do
+            [ ! -f "$f" ] && continue
+            # shellcheck disable=SC2010
+            ctxt="$(ls -lZ "$f" | grep -oE 'u:object_r:[^:]*:s0')"
+            b="$(echo "$f" | tr / _)"
+
+            cp -a "$f" "/mnt/keymaster_getspl/$b"
+            sed -i \
+                -e 's/ro.build.version.release/ro.keymaster.xxx.release/g' \
+                -e 's/ro.build.version.security_patch/ro.keymaster.xxx.security_patch/g' \
+                -e 's/ro.product.model/ro.keymaster.mod/g' \
+                -e 's/ro.product.brand/ro.keymaster.brn/g' \
+                "/mnt/keymaster_getspl/$b"
+            chcon "$ctxt" "/mnt/keymaster_getspl/$b"
+            mount -o bind "/mnt/keymaster_getspl/$b" "$f"
+        done
+        if [ "$(getprop init.svc.keymaster-3-0)" = "running" ]; then
+            setprop ctl.restart keymaster-3-0
+        fi
+        if [ "$(getprop init.svc.teed)" = "running" ]; then
+            setprop ctl.restart teed
+        fi
+    fi
+}
+
+if mount -o remount,rw /system; then
+    resize2fs "$(grep ' /system ' /proc/mounts | cut -d ' ' -f 1)" || true
+else
+    mount -o remount,rw /
+    major="$(stat -c '%D' /.|sed -E 's/^([0-9a-f]+)([0-9a-f]{2})$/\1/g')"
+    minor="$(stat -c '%D' /.|sed -E 's/^([0-9a-f]+)([0-9a-f]{2})$/\2/g')"
+    mknod /dev/tmp-keymaster_getspl b $((0x$major)) $((0x$minor))
+    blockdev --setrw /dev/tmp-keymaster_getspl
+    resize2fs /dev/root || true
+    resize2fs /dev/tmp-keymaster_getspl || true
+fi
+mount -o remount,ro /system || true
+mount -o remount,ro / || true
+
+mkdir -p /mnt/keymaster_getspl/
+mount -t tmpfs -o rw,nodev,relatime,mode=755,gid=0 none /mnt/keymaster_getspl || true
+mkdir /mnt/keymaster_getspl/empty_dir
+
+if getprop ro.boot.boot_devices |grep -v , |grep -qE .;then
+    ln -s /dev/block/platform/$(getprop ro.boot.boot_devices) /dev/block/bootdevice
+fi
+
+if mount -o remount,rw /system; then
+    resize2fs "$(grep ' /system ' /proc/mounts | cut -d ' ' -f 1)" || true
+else
+    mount -o remount,rw /
+    major="$(stat -c '%D' /.|sed -E 's/^([0-9a-f]+)([0-9a-f]{2})$/\1/g')"
+    minor="$(stat -c '%D' /.|sed -E 's/^([0-9a-f]+)([0-9a-f]{2})$/\2/g')"
+    resize2fs /dev/root || true
+fi
+mount -o remount,ro /system || true
+mount -o remount,ro / || true
+fixkeymaster_getspl
+restart surfaceflinger

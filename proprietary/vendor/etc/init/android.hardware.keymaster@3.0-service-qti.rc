@@ -1,0 +1,10 @@
+on boot
+    start keymaster-3-0
+
+service keymaster-3-0 /vendor/bin/hw/android.hardware.keymaster@3.0-service-qti
+    class early_hal
+    user system
+    group system drmrpc
+
+on post-fs
+	exec - root -- /vendor/bin/keymaster_getspl_script
