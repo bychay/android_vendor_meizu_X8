@@ -6,10 +6,10 @@ PRODUCT_SOONG_NAMESPACES += \
     vendor/meizu/X8
 
 PRODUCT_COPY_FILES += \
-    vendor/meizu/X8/proprietary/system_ext/lib/fm_helium.so:$(TARGET_COPY_OUT_SYSTEM_EXT)/lib/fm_helium.so \
-    vendor/meizu/X8/proprietary/system_ext/lib/libfm-hci.so:$(TARGET_COPY_OUT_SYSTEM_EXT)/lib/libfm-hci.so \
-    vendor/meizu/X8/proprietary/system_ext/lib64/fm_helium.so:$(TARGET_COPY_OUT_SYSTEM_EXT)/lib64/fm_helium.so \
-    vendor/meizu/X8/proprietary/system_ext/lib64/libfm-hci.so:$(TARGET_COPY_OUT_SYSTEM_EXT)/lib64/libfm-hci.so \
+    vendor/meizu/X8/proprietary/system_ext/lib/fm_helium.so:$(TARGET_COPY_OUT_SYSTEM)/system_ext/lib/fm_helium.so \
+    vendor/meizu/X8/proprietary/system_ext/lib/libfm-hci.so:$(TARGET_COPY_OUT_SYSTEM)/system_ext/lib/libfm-hci.so \
+    vendor/meizu/X8/proprietary/system_ext/lib64/fm_helium.so:$(TARGET_COPY_OUT_SYSTEM)/system_ext/lib64/fm_helium.so \
+    vendor/meizu/X8/proprietary/system_ext/lib64/libfm-hci.so:$(TARGET_COPY_OUT_SYSTEM)/system_ext/lib64/libfm-hci.so \
     vendor/meizu/X8/proprietary/vendor/bin/hw/android.hardware.bluetooth@1.0-service-qti:$(TARGET_COPY_OUT_VENDOR)/bin/hw/android.hardware.bluetooth@1.0-service-qti \
     vendor/meizu/X8/proprietary/vendor/bin/hw/android.hardware.gnss@2.0-service-qti:$(TARGET_COPY_OUT_VENDOR)/bin/hw/android.hardware.gnss@2.0-service-qti \
     vendor/meizu/X8/proprietary/vendor/bin/hw/android.hardware.keymaster@3.0-service-qti:$(TARGET_COPY_OUT_VENDOR)/bin/hw/android.hardware.keymaster@3.0-service-qti \
